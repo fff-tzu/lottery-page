@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>冯馨仪的新年抽奖</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #FAB27B, #ff83c7);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.container {
+  max-width: 1100px;
+  width: 100%;
+  padding: 20px;
+}
+
+h1, h2, h3 {
+  text-align: center;
+  color: #fff;
+}
+
+/* 面板里的标题：深色文字+图标对齐 */
+.panel h3 {
+  color: #333; /* 改成深色，和白色背景区分 */
+  margin: 0 0 10px 0; /* 去掉顶部间距，让标题更靠上 */
+  display: flex;
+  align-items: center; /* 图标和文字垂直居中 */
+  gap: 8px; /* 图标和文字之间留小间距 */
+}
+
+#loginBox, .panel, .admin {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 20px 15px; /* 减少顶部padding（原来20px），让标题更靠上 */
+  margin-top: 20px;
+}
+
+input, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
+
+button {
+  background: #667eea;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+button:hover { background: #5a6fd8; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.card {
+  height: 160px;
+  perspective: 1000px;
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.card.revealed .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card.revealed {
+  animation: glow 1.5s infinite alternate;
+}
+
+@keyframes glow {
+  from { box-shadow: 0 0 10px gold; }
+  to   { box-shadow: 0 0 25px gold; }
+}
+
+.card.disabled {
+  pointer-events: none;
+  filter: grayscale(1) brightness(0.6);
+  opacity: 0.5;
+}
+
+.face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 统一图片大小 */
+.front img, .back img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 保持图片比例并覆盖容器 */
+}
+
+.back {
+  background: #f4f4f4;
+  transform: rotateY(180deg);
+  flex-direction: column;
+  font-size: 14px;
+}
+
+/* 抽奖记录 每条记录的样式 */
+.log-item {
+  border-bottom: 1px solid #eee;
+  padding: 5px 0;
+  color: #333; /* 字体颜色 */
+  line-height: 1.5; /* 行高 */
+}
+
+#contentArea, #adminArea { display: none; }
+
+/* 礼物详情的布局样式 */
+.prize-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px; /* 图片和文字的间距 */
+}
+/* 缩小图片（可自行调整width数值） */
+.prize-img {
+  width: 100px; 
+  height: auto; /* 保持图片比例 */
+  border-radius: 8px; /* 圆角更美观 */
+}
+.prize-name {
+  margin: 0;
+   /* font-weight: bold;礼物名称加粗 */
+  font-family: "微软雅黑", sans-serif; /* 换字体 */
+  font-size: 16px; /* 字体大小 */
+  font-weight: 600; /* 加粗程度 */
+}
+/* 详细说明的样式 */
+.prize-desc {
+  margin: 5px 0 0;
+  font-family: "微软雅黑", serif; /* 详情用不同字体 */
+  font-size: 14px; /* 字体大小 */
+  color: #555; /* 深灰色更清晰 */
+  line-height: 1.6; /* 行高更宽松 */
+}
+
+/* 退出按钮样式 */
+.logout-btn {
+  background: #667eea;
+  margin-top: 20px;
+}
+.logout-btn:hover {
+  background: #5a6fd8;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>冯馨仪的新年礼物🎁<br>看看你会领走哪个吧 🤗</h1>
+  <h2 id="countdown"></h2>
+
+  <!-- 登录 -->
+  <div id="loginBox">
+    <h3>幸运儿登录</h3>
+    <input id="nickInput" placeholder="请输入昵称">
+    <input id="pwdInput" placeholder="管理员密码（可选）" type="password">
+    <button onclick="login()">进入</button>
+  </div>
+
+  <!-- 内容 -->
+  <div id="contentArea">
+    <div id="userArea">
+      <div id="cardGrid" class="grid"></div>
+
+      <div class="panel">
+        <h3>👑 我的礼物</h3>
+        <div id="myPrize">未抽奖</div>
+      </div>
+
+      <div class="panel">
+        <h3>📜 抽奖记录</h3>
+        <div id="logList"></div>
+      </div>
+
+      <!-- 退出按钮 -->
+      <button id="logoutBtn" class="logout-btn" onclick="logout()" style="display: none;">退出登录</button>
+    </div>
+
+    <div id="adminArea" class="admin">
+      <h3>管理员控制台</h3>
+      <button onclick="endActivity()">结束活动</button>
+      <button onclick="resetAll()">重置活动</button>
+      <button onclick="exportJSON()">导出 JSON</button>
+      <button onclick="exportCSV()">导出 CSV</button>
+      <div id="adminLogs"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 配置区 ===== */
+const ADMIN_PWD = "fxy797982";
+const CARD_COUNT = 11;
+const DURATION = 60 * 60 * 1000;
+
+/* 卡牌封面 */
+const CARD_COVERS = [
+  "images/1.png","images/2.png","images/3.png","images/4.png","images/5.png",
+  "images/6.jpg","images/7.jpg","images/8.png","images/9.jpg","images/10.png","images/11.jpg"
+];
+
+/* ⚠️ 固定对应礼物（顺序 = 卡牌顺序） */
+const PRIZES = [
+  {name:"陪看恐怖电影", img:"images/gift1.png", desc:"在你想看恐怖电影但不敢看的时候，我可以全程陪伴哦"},
+  {name:"芒果会员", img:"images/gift2.png", desc:"超级无敌大惊喜之芒果TV会员年卡啦"},
+  {name:"手机壳", img:"images/gift3.png", desc:"图片只是参考啦，你想换手机壳的话可以找我哦"},
+  {name:"心平气和buff", img:"images/gift4.png", desc:"万一吵架了，你可以获得24小时不会对你生气的冯馨仪"},
+  {name:"零食", img:"images/gift5.png", desc:"零食++"},
+  {name:"UNO不坑", img:"images/gift6.png", desc:"玩UNO时有万能牌就会帮你啦"},
+  {name:"陪打麻将", img:"images/gift7.png", desc:"如果你想打麻将但凑不齐人，可以找没有事的冯馨仪"},
+  {name:"新年第一杯奶茶", img:"images/gift8.png", desc:"请你喝新年的第一杯奶茶"},
+  {name:"照片书", img:"images/gift9.png", desc:"给你做定制的照片书，承载我们的回忆"},
+  {name:"鼠标垫", img:"images/gift10.jpg", desc:"图片仅供参考啦，你要是想换鼠标垫可以找我哦"},
+  {name:"NFC", img:"images/gift11.png", desc:"定制NFC专辑挂件，可以录入你喜欢的歌曲"}
+];
+
+/* ===== 状态 ===== */
+let state = JSON.parse(localStorage.getItem("lotteryState")) || {
+  startedAt: Date.now(),
+  isActive: true,
+  users: [],
+  cards: Array(CARD_COUNT).fill(null),
+  logs: []
+};
+
+const save = () => localStorage.setItem("lotteryState", JSON.stringify(state));
+
+/* ===== 登录 ===== */
+function login(){
+  const nick = nickInput.value.trim();
+  const pwd = pwdInput.value;
+  if(!nick) return alert("请输入昵称");
+
+  const role = pwd === ADMIN_PWD ? "admin" : "user";
+  // 如果用户是新用户，则添加到 users
+  if(!state.users.includes(nick)){
+    state.users.push(nick);
+    save();
+  }
+  localStorage.setItem("currentUser", JSON.stringify({nick, role}));
+  init();
+}
+
+/* ===== 退出登录 ===== */
+function logout(){
+  if(confirm("确定要退出登录吗？")){
+    localStorage.removeItem("currentUser");
+    contentArea.style.display = "none";
+    loginBox.style.display = "block";
+    nickInput.value = "";
+    pwdInput.value = "";
+  }
+}
+
+/* ===== 初始化 ===== */
+function init(){
+  loginBox.style.display = "none";
+  contentArea.style.display = "block";
+  startCountdown();
+  renderCards();
+  renderLogs();
+  renderMyPrize();
+
+  const user = JSON.parse(localStorage.getItem("currentUser"));
+  if(user.role === "admin") {
+    adminArea.style.display = "block";
+    logoutBtn.style.display = "none";
+    renderAdminLogs();
+  } else {
+    adminArea.style.display = "none";
+    logoutBtn.style.display = "block";
+    // 如果用户已抽过奖，禁用所有卡牌
+    if(state.cards.some(c => c && c.nick === user.nick)){
+      document.querySelectorAll(".card").forEach(card => {
+        card.classList.add("disabled");
+      });
+    }
+  }
+}
+
+/* ===== 倒计时 ===== */
+function startCountdown(){
+  setInterval(()=>{
+    if(!state.isActive){
+      countdown.innerText = "⏰ 活动已结束";
+      return;
+    }
+    const remain = DURATION - (Date.now() - state.startedAt);
+    if(remain <= 0){
+      state.isActive = false;
+      save();
+    }
+    countdown.innerText = `⏰ 剩余 ${Math.max(0, Math.floor(remain/60000))} 分`;
+  },1000);
+}
+
+/* ===== 抽奖（核心：固定对应） ===== */
+function drawCard(index){
+  const user = JSON.parse(localStorage.getItem("currentUser"));
+
+  if(state.cards.some(c => c && c.nick === user.nick))
+    return alert("你已经抽过了");
+
+  if(state.cards[index])
+    return alert("很遗憾，这张卡已经被领走了");
+
+  if(!confirm("确定选择这张卡牌吗？")) return;
+
+  const prize = PRIZES[index]; // ⭐ 核心：一一对应
+
+  state.cards[index] = {
+    nick: user.nick,
+    prize
+  };
+
+  state.logs.push({
+    nick: user.nick,
+    card: index + 1,
+    prize: prize.name,
+    time: new Date().toLocaleString()
+  });
+
+  save();
+  renderCards();
+  renderLogs();
+  renderMyPrize();
+}
+
+/* ===== 渲染 ===== */
+function renderCards(){
+  cardGrid.innerHTML = "";
+  const user = JSON.parse(localStorage.getItem("currentUser"));
+
+  state.cards.forEach((c,i)=>{
+    const el = document.createElement("div");
+    el.className = `card ${c?"revealed":""} ${!state.isActive?"disabled":""}`;
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="face front"><img src="${CARD_COVERS[i]}"></div>
+        <div class="face back">
+          ${c ? `<img src="${c.prize.img}"><p>${c.prize.name}</p>${c.nick===user.nick?"👑 我的礼物":""}` : ""}
+        </div>
+      </div>`;
+    if(!c && state.isActive) el.onclick = () => drawCard(i);
+    cardGrid.appendChild(el);
+  });
+}
+
+function renderMyPrize(){
+  const user = JSON.parse(localStorage.getItem("currentUser"));
+  const c = state.cards.find(c => c && c.nick === user.nick);
+  
+  if(c) {
+    // 抽中后显示礼物详情
+    myPrize.innerHTML = `
+      <div class="prize-detail">
+        <img src="${c.prize.img}" class="prize-img">
+        <div class="prize-info">
+          <p class="prize-name">${c.prize.name}</p>
+          <p class="prize-desc">${c.prize.desc}</p>
+        </div>
+      </div>
+    `;
+  } else {
+    // 没抽奖时显示提示
+    myPrize.innerHTML = "你还没有开始抽哦";
+  }
+}
+
+function renderLogs(){
+  logList.innerHTML = "";
+  [...state.logs].reverse().forEach(l=>{
+    logList.innerHTML += `<div class="log-item">${l.time} - ${l.nick} 抽到 ${l.prize}</div>`;
+  });
+}
+
+function renderAdminLogs(){
+  adminLogs.innerHTML = "";
+  state.logs.forEach(l=>{
+    adminLogs.innerHTML += `<div>${l.nick} | 第${l.card}张 | ${l.prize}</div>`;
+  });
+}
+
+/* ===== 管理员 ===== */
+function endActivity(){ state.isActive = false; save(); }
+function resetAll(){ localStorage.clear(); location.reload(); }
+
+function exportJSON(){
+  const a = document.createElement("a");
+  a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.logs,null,2));
+  a.download = "抽奖记录.json";
+  a.click();
+}
+
+function exportCSV(){
+  let csv = "昵称,卡牌,礼物,时间\n";
+  state.logs.forEach(l=> csv += `${l.nick},${l.card},${l.prize},${l.time}\n`);
+  const a = document.createElement("a");
+  a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+  a.download = "抽奖记录.csv";
+  a.click();
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  if(localStorage.getItem("currentUser")) init();
+});
+</script>
+</body>
+</html>
